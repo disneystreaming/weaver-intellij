@@ -1,0 +1,46 @@
+kind: pipeline
+name: default
+
+steps:
+
+# Compile the code/run tests
+- name: build
+  image: keynmol/weaver-scala-sbt-yarn:latest
+  commands:
+  - sbt ci
+  - echo Built $(cat version)
+  environment:
+    COURSIER_CACHE: .cache/coursier
+    SBT_OPTS: "-XX:+UseG1GC -XX:MaxMetaspaceSize=2g -Xms1g -Xmx2g -Xss2M -XX:+CMSClassUnloadingEnabled"
+  volumes:
+    - name: sbt-cache
+      path: /root/.sbt
+    - name: intellij-cache
+      path: /root/.weaver-intellijPluginIC
+
+
+# Uploads intellij plugin to the github release
+- name: publish-intellij-plugin
+  image: keynmol/weaver-scala-sbt-yarn:latest
+  commands:
+  - sbt packageIntellijPlugin
+  - amm scripts/releasePlugin.sc $(cat intellijPlugin)
+  environment:
+    COURSIER_CACHE: .cache/coursier
+    SBT_OPTS: "-XX:+UseG1GC -XX:MaxMetaspaceSize=2g -Xms1g -Xmx2g -Xss2M -XX:+CMSClassUnloadingEnabled"
+    GITHUB_TOKEN:
+      from_secret: github_api_token
+  when:
+    ref:
+      - refs/tags/v*
+  volumes:
+    - name: sbt-cache
+      path: /root/.sbt
+    - name: intellij-cache
+      path: /root/.weaver-intellijPluginIC
+
+volumes:
+- name: sbt-cache
+  temp: {}
+- name: intellij-cache
+  temp: {}
